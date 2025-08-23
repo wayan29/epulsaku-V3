@@ -1,0 +1,27 @@
+{
+  "name": "ePulsaku - Transaksi Digital",
+  "short_name": "ePulsaku",
+  "description": "Aplikasi untuk transaksi pulsa, token listrik, top-up game, dan produk digital lainnya.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4338ca",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/maskable_icon.png",
+      "sizes": "196x196",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
