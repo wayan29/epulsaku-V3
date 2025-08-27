@@ -3,11 +3,11 @@
 
 import type { TransactionStatus, NewTransactionInput, TransactionCore } from "@/components/transactions/TransactionItem"; 
 import { productIconsMapping } from "@/components/transactions/TransactionItem";
-import { readDb, writeDb } from './mongodb'; // Now json-db helpers
+import { readDb, writeDb } from './mongodb';
 import { revalidatePath } from 'next/cache';
 import { fetchSingleCustomPriceFromDB } from '@/lib/db-price-settings-utils'; 
-import crypto from 'crypto';
 import { subMonths } from 'date-fns';
+import type { ObjectId } from 'mongodb';
 
 const TRANSACTIONS_DB = "transactions_log";
 
@@ -20,32 +20,7 @@ const RELEVANT_EMONEY_CATEGORIES_UPPER = ["E-MONEY", "E-WALLET", "SALDO DIGITAL"
 export interface Transaction extends TransactionCore {
   iconName: string;
   categoryKey: string; 
-  _id?: string; 
-}
-
-// Function to automatically delete transactions older than 3 months
-async function deleteOldTransactions(): Promise<void> {
-  try {
-    const allTransactions = await readDb<Transaction[]>(TRANSACTIONS_DB);
-    if (allTransactions.length === 0) return;
-
-    const threeMonthsAgo = subMonths(new Date(), 3);
-    
-    const recentTransactions = allTransactions.filter(tx => {
-      const txDate = new Date(tx.timestamp);
-      // Keep transaction if date is invalid (shouldn't happen) or if it's within the last 3 months
-      return isNaN(txDate.getTime()) || txDate >= threeMonthsAgo;
-    });
-
-    // If the number of transactions has changed, write the new list back to the DB
-    if (recentTransactions.length < allTransactions.length) {
-      console.log(`[DB Pruning] Deleting ${allTransactions.length - recentTransactions.length} transactions older than 3 months.`);
-      await writeDb(TRANSACTIONS_DB, recentTransactions);
-    }
-  } catch (error) {
-    console.error("Error pruning old transactions from DB:", error);
-    // We don't throw an error here to not disrupt the main flow (e.g., fetching transactions)
-  }
+  _id: string; // Ensure _id is always a string for client components
 }
 
 function determineTransactionCategoryDetails(
@@ -101,10 +76,16 @@ async function calculateSellingPrice (costPrice: number, productCode: string, pr
   }
 };
 
+const makeTransactionSerializable = (tx: any): Transaction => {
+  if (tx._id && typeof tx._id !== 'string') {
+    tx._id = tx._id.toHexString();
+  }
+  return tx as Transaction;
+};
+
+
 export async function addTransactionToDB(newTransactionInput: NewTransactionInput, transactedByUsername: string): Promise<{ success: boolean, transactionId?: string, message?: string }> {
   try {
-    const transactions = await readDb<Transaction[]>(TRANSACTIONS_DB);
-    
     const { categoryKey, iconName } = determineTransactionCategoryDetails(
       newTransactionInput.productCategoryFromProvider,
       newTransactionInput.productBrandFromProvider,
@@ -119,9 +100,8 @@ export async function addTransactionToDB(newTransactionInput: NewTransactionInpu
     
     const transactionDate = new Date(newTransactionInput.timestamp);
 
-    const docToInsert: Transaction = {
+    const docToInsert: TransactionCore & { _id?: ObjectId } = {
       ...newTransactionInput,
-      _id: crypto.randomUUID(), // Internal ID for JSON file
       sellingPrice: sellingPrice,
       source: newTransactionInput.source || 'web', 
       categoryKey: categoryKey,
@@ -134,9 +114,9 @@ export async function addTransactionToDB(newTransactionInput: NewTransactionInpu
       transactionHour: transactionDate.getHours(),
       transactedBy: transactedByUsername,
     };
-
-    transactions.push(docToInsert);
-    await writeDb(TRANSACTIONS_DB, transactions);
+    
+    // Do not assign _id, let MongoDB handle it.
+    await writeDb(TRANSACTIONS_DB, docToInsert, { mode: 'insertOne' });
 
     revalidatePath('/transactions'); 
     revalidatePath('/profit-report'); 
@@ -149,11 +129,8 @@ export async function addTransactionToDB(newTransactionInput: NewTransactionInpu
 
 export async function getTransactionsFromDB(): Promise<Transaction[]> {
   try {
-    // Prune old transactions before fetching. This is an asynchronous fire-and-forget.
-    deleteOldTransactions();
-    
-    const transactions = await readDb<Transaction[]>(TRANSACTIONS_DB);
-    // Sort by timestamp descending
+    const transactionsFromDb = await readDb<any[]>(TRANSACTIONS_DB);
+    const transactions = transactionsFromDb.map(makeTransactionSerializable);
     return transactions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   } catch (error) {
     console.error("Error fetching transactions from DB:", error);
@@ -163,8 +140,9 @@ export async function getTransactionsFromDB(): Promise<Transaction[]> {
 
 export async function getTransactionByIdFromDB(transactionId: string): Promise<Transaction | null> {
   try {
-    const transactions = await readDb<Transaction[]>(TRANSACTIONS_DB);
-    return transactions.find(tx => tx.id === transactionId) || null;
+    const transaction = await readDb<any>(TRANSACTIONS_DB, { query: { id: transactionId } });
+    if (!transaction) return null;
+    return makeTransactionSerializable(transaction);
   } catch (error) {
     console.error(`Error fetching transaction by ID ${transactionId} from DB:`, error);
     return null;
@@ -173,53 +151,44 @@ export async function getTransactionByIdFromDB(transactionId: string): Promise<T
 
 export async function updateTransactionInDB(updatedTxData: Partial<TransactionCore> & { id: string }): Promise<{ success: boolean, message?: string }> {
   try {
-    const transactions = await readDb<Transaction[]>(TRANSACTIONS_DB);
-    const txIndex = transactions.findIndex(tx => tx.id === updatedTxData.id);
+    const existingTransaction = await getTransactionByIdFromDB(updatedTxData.id);
 
-    if (txIndex === -1) {
+    if (!existingTransaction) {
       return { success: false, message: `Transaction with id ${updatedTxData.id} not found for update.` };
     }
+    
+    const updatePayload: { [key: string]: any } = { ...updatedTxData };
+    delete updatePayload.id;
 
-    const existingTransaction = transactions[txIndex];
-    
-    // Create the updated transaction object
-    const updatedTransaction = { ...existingTransaction, ...updatedTxData };
-    
-    // Logic for timestamp update on status change from Pending
     if (existingTransaction.status === "Pending" && updatedTxData.status && (updatedTxData.status === "Sukses" || updatedTxData.status === "Gagal")) {
         const now = new Date();
-        updatedTransaction.timestamp = now.toISOString();
-        updatedTransaction.transactionYear = now.getFullYear();
-        updatedTransaction.transactionMonth = now.getMonth() + 1;
-        updatedTransaction.transactionDayOfMonth = now.getDate();
-        updatedTransaction.transactionDayOfWeek = now.getDay();
-        updatedTransaction.transactionHour = now.getHours();
+        updatePayload.timestamp = now.toISOString();
+        updatePayload.transactionYear = now.getFullYear();
+        updatePayload.transactionMonth = now.getMonth() + 1;
+        updatePayload.transactionDayOfMonth = now.getDate();
+        updatePayload.transactionDayOfWeek = now.getDay();
+        updatePayload.transactionHour = now.getHours();
     }
     
-    // Recalculate selling price if necessary
     if (updatedTxData.costPrice !== undefined && updatedTxData.costPrice > 0 && updatedTxData.costPrice !== existingTransaction.costPrice) {
-        updatedTransaction.sellingPrice = await calculateSellingPrice(
-            updatedTransaction.costPrice,
-            updatedTransaction.buyerSkuCode,
-            updatedTransaction.provider
+        updatePayload.sellingPrice = await calculateSellingPrice(
+            updatedTxData.costPrice,
+            existingTransaction.buyerSkuCode,
+            existingTransaction.provider
         );
     }
     
-    // Update category/icon if relevant fields changed
     if (updatedTxData.productCategoryFromProvider !== undefined || updatedTxData.productBrandFromProvider !== undefined) {
         const { categoryKey, iconName } = determineTransactionCategoryDetails(
-            updatedTransaction.productCategoryFromProvider,
-            updatedTransaction.productBrandFromProvider,
-            updatedTransaction.provider
+            updatedTxData.productCategoryFromProvider || existingTransaction.productCategoryFromProvider,
+            updatedTxData.productBrandFromProvider || existingTransaction.productBrandFromProvider,
+            existingTransaction.provider
         );
-        updatedTransaction.categoryKey = categoryKey;
-        updatedTransaction.iconName = iconName;
+        updatePayload.categoryKey = categoryKey;
+        updatePayload.iconName = iconName;
     }
     
-    // Replace the old transaction with the updated one
-    transactions[txIndex] = updatedTransaction;
-
-    await writeDb(TRANSACTIONS_DB, transactions);
+    await writeDb(TRANSACTIONS_DB, updatePayload, { mode: 'updateOne', query: { id: updatedTxData.id } });
     
     revalidatePath('/transactions'); 
     revalidatePath('/profit-report');
@@ -232,12 +201,8 @@ export async function updateTransactionInDB(updatedTxData: Partial<TransactionCo
 
 export async function deleteTransactionFromDB(transactionId: string): Promise<{ success: boolean, message?: string }> {
   try {
-    const transactions = await readDb<Transaction[]>(TRANSACTIONS_DB);
-    const initialLength = transactions.length;
-    const updatedTransactions = transactions.filter(tx => tx.id !== transactionId);
-
-    if (updatedTransactions.length < initialLength) {
-        await writeDb(TRANSACTIONS_DB, updatedTransactions);
+    const result = await writeDb(TRANSACTIONS_DB, null, { mode: 'deleteOne', query: { id: transactionId } });
+    if (result && result.deletedCount > 0) {
         revalidatePath('/transactions'); 
         revalidatePath('/profit-report');
         return { success: true };

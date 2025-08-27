@@ -36,6 +36,9 @@ const sendTelegramMessageFlow = ai.defineFlow(
     outputSchema: SendTelegramMessageOutputSchema,
   },
   async ({ botToken, chatId, message }) => {
+    // Diagnostic log to verify the token being used
+    console.log(`[Telegram Flow] Attempting to send message to Chat ID ${chatId}. Token being used (first 8 chars): ${botToken.substring(0, 8)}...`);
+
     const apiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
     const requestBody = {
       chat_id: chatId,

@@ -19,7 +19,7 @@ import { DollarSign, TrendingUp, TrendingDown, Loader2, AlertTriangle, CalendarI
 import { getTransactionsFromDB, type Transaction } from "@/lib/transaction-utils";
 import { DateRange } from "react-day-picker";
 import { 
-  format, 
+  format as formatDateFns, 
   isWithinInterval, 
   startOfDay, 
   endOfDay, 
@@ -38,6 +38,7 @@ import ProtectedRoute from '@/components/core/ProtectedRoute';
 import { getEffectiveSellingPrice } from '@/lib/price-settings-utils';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { formatDateInTimezone } from '@/lib/timezone';
 
 // Extend the jsPDF type to include the autoTable method from the plugin
 declare module 'jspdf' {
@@ -162,7 +163,7 @@ export default function ProfitReportPage() {
         const effectiveSellingPrice = getEffectiveSellingPrice(tx.buyerSkuCode, tx.provider, tx.costPrice);
         const profit = effectiveSellingPrice - tx.costPrice;
         return [
-            format(new Date(tx.timestamp), "dd/MM/yy HH:mm"),
+            formatDateInTimezone(tx.timestamp, "dd/MM/yy HH:mm"),
             tx.productName,
             tx.details,
             tx.transactedBy || 'N/A',
@@ -204,7 +205,7 @@ export default function ProfitReportPage() {
             const effectiveSellingPrice = getEffectiveSellingPrice(tx.buyerSkuCode, tx.provider, tx.costPrice);
             const profit = effectiveSellingPrice - tx.costPrice;
             const row = [
-                `"${format(new Date(tx.timestamp), "yyyy-MM-dd HH:mm:ss")}"`,
+                `"${formatDateInTimezone(tx.timestamp, "yyyy-MM-dd HH:mm:ss")}"`,
                 `"${tx.productName.replace(/"/g, '""')}"`,
                 `"${tx.details.replace(/"/g, '""')}"`,
                 `"${tx.transactedBy || 'N/A'}"`,
@@ -320,10 +321,10 @@ export default function ProfitReportPage() {
                     {dateRange?.from ? (
                       dateRange.to ? (
                         <>
-                          {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                          {formatDateFns(dateRange.from, "LLL dd, y")} - {formatDateFns(dateRange.to, "LLL dd, y")}
                         </>
                       ) : (
-                        format(dateRange.from, "LLL dd, y")
+                        formatDateFns(dateRange.from, "LLL dd, y")
                       )
                     ) : (
                       <span>Pilih tanggal</span>
@@ -336,7 +337,7 @@ export default function ProfitReportPage() {
                     mode="range"
                     defaultMonth={dateRange?.from}
                     selected={dateRange}
-                    onSelect={(newRange) => setDateFilter(newRange, newRange?.from && newRange?.to ? `${format(newRange.from, "dd/MM/yy")} - ${format(newRange.to, "dd/MM/yy")}` : newRange?.from ? format(newRange.from, "dd/MM/yy") : "Custom Range")}
+                    onSelect={(newRange) => setDateFilter(newRange, newRange?.from && newRange?.to ? `${formatDateFns(newRange.from, "dd/MM/yy")} - ${formatDateFns(newRange.to, "dd/MM/yy")}` : newRange?.from ? formatDateFns(newRange.from, "dd/MM/yy") : "Custom Range")}
                     numberOfMonths={2}
                   />
                 </PopoverContent>
@@ -417,7 +418,7 @@ export default function ProfitReportPage() {
                                 const profit = effectiveSellingPrice - tx.costPrice;
                                 return (
                                 <TableRow key={tx.id}>
-                                <TableCell>{format(new Date(tx.timestamp), "dd MMM yyyy, HH:mm")}</TableCell>
+                                <TableCell>{formatDateInTimezone(tx.timestamp)}</TableCell>
                                 <TableCell>{tx.productName}</TableCell>
                                 <TableCell>{tx.details}</TableCell>
                                 <TableCell>{tx.transactedBy || 'N/A'}</TableCell>

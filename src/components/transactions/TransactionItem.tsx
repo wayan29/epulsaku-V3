@@ -57,6 +57,7 @@ import {
 } from "@/lib/transaction-utils";
 import { trySendTelegramNotification } from "@/lib/notification-utils";
 import { getEffectiveSellingPrice } from "@/lib/price-settings-utils";
+import { formatDateInTimezone } from "@/lib/timezone";
 
 export const productIconsMapping: { [key: string]: LucideIcon } = {
   Pulsa: Smartphone,
@@ -580,7 +581,7 @@ export default function TransactionItem({
                 <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground border-t border-border/50">
                   <div className="flex items-center gap-1.5">
                     <CalendarDays className="h-3.5 w-3.5" />
-                    <span>{new Date(timestamp).toLocaleString("id-ID")}</span>
+                    <span>{formatDateInTimezone(timestamp)}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Hash className="h-3.5 w-3.5" />
@@ -609,7 +610,7 @@ export default function TransactionItem({
                 <DetailRow
                   icon={CalendarDays}
                   label="Date"
-                  value={new Date(timestamp).toLocaleString("id-ID")}
+                  value={formatDateInTimezone(timestamp)}
                 />
                 <Badge
                   variant={

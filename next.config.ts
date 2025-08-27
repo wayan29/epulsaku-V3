@@ -21,7 +21,23 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'api.dicebear.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
+  },
+  webpack: (config, { isServer }) => {
+    // Suppress warnings from dependencies that use dynamic requires
+    // This is common for packages that have optional dependencies.
+    config.ignoreWarnings = [
+        ...(config.ignoreWarnings || []),
+        /Module not found: Can't resolve '@opentelemetry\/exporter-jaeger'/,
+        /require\.extensions is not supported by webpack/,
+    ];
+    return config;
   },
   async headers() {
     return [
@@ -43,7 +59,7 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value:
-              "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https://placehold.co; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; worker-src 'self';",
+              "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://placehold.co https://api.dicebear.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; worker-src 'self';",
           },
         ],
       },

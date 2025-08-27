@@ -28,6 +28,7 @@ Selamat datang di ePulsaku! Aplikasi web Next.js yang dirancang untuk memfasilit
 
 *   **Frontend**: Next.js dengan React, ShadCN UI, dan Tailwind CSS.
 *   **Backend**: Next.js API Routes dan Server Actions.
+*   **Database**: MongoDB untuk skalabilitas dan performa.
 *   **Manajemen Pengguna**: Pendaftaran (hanya untuk super_admin pertama), login, ganti password, ganti PIN, dan manajemen peran (super_admin, admin, staf) dengan hak akses dinamis.
 *   **Provider Produk Digital**: Terintegrasi dengan Digiflazz dan TokoVoucher.
 *   **Form Order Dinamis**: Halaman pemesanan yang disesuaikan untuk Pulsa, Token Listrik, Top Up Game, dan layanan digital lainnya.
@@ -96,7 +97,7 @@ sudo systemctl enable mongodb # Agar berjalan otomatis saat boot
 # Verifikasi
 mongo --eval 'db.runCommand({ connectionStatus: 1 })'
 ```
-Atau, Anda bisa menggunakan layanan cloud seperti MongoDB Atlas dan dapatkan Connection String URI Anda.
+Atau, Anda bisa menggunakan layanan cloud seperti **MongoDB Atlas** dan dapatkan Connection String URI Anda.
 
 ### 3.4. Konfigurasi Variabel Lingkungan (.env)
 
@@ -133,6 +134,10 @@ JWT_SECRET="<ganti_dengan_kunci_random_panjang_anda>"
 # Kunci API untuk Google AI (Gemini)
 # Diperlukan untuk fitur seperti "Chat AI Gemini"
 GEMINI_API_KEY="<ganti_dengan_kunci_API_google_ai_anda>"
+
+# Zona Waktu Aplikasi
+# Gunakan identifier dari IANA Time Zone Database (e.g., Asia/Jakarta, Asia/Makassar, Asia/Jayapura)
+TIMEZONE="Asia/Makassar"
 ```
 
 **Cara Membuat Kunci Keamanan:**
@@ -325,22 +330,17 @@ ePulsaku/
 │   │   └── ui/                               # Komponen UI dari ShadCN (Button, Card, dll)
 │   ├── contexts/                             # React Context Providers
 │   │   └── AuthContext.tsx                   # Mengelola state autentikasi & data pengguna di seluruh aplikasi
-│   ├── data/                                 # !! PENTING: Folder untuk database berbasis file JSON !!
-│   │   └── *.json                            # File-file ini berfungsi sebagai database
-│   ├── hooks/                                # Custom React hooks
-│   │   ├── use-mobile.tsx
-│   │   └── use-toast.ts
-│   └── lib/                                  # Logika & utilitas pendukung (server-side)
-│       ├── admin-settings-utils.ts         # Fungsi untuk enkripsi/dekripsi & manajemen kredensial admin
-│       ├── auth-utils.ts                     # Konstanta, tipe, dan utilitas terkait autentikasi
-│       ├── client-utils.ts                   # Utilitas yang aman untuk digunakan di sisi klien
-│       ├── db-price-settings-utils.ts        # Fungsi untuk mengelola harga custom di database
-│       ├── mongodb.ts                        # Abstraksi untuk membaca/menulis ke database file JSON
-│       ├── notification-utils.ts             # Logika untuk memformat & mengirim notifikasi Telegram
-│       ├── price-settings-utils.ts           # Utilitas harga custom untuk sisi klien (localStorage)
-│       ├── transaction-utils.ts              # Fungsi CRUD untuk data transaksi
-│       ├── user-utils.ts                     # Fungsi CRUD untuk data pengguna (termasuk hash password/PIN)
-│       └── utils.ts                          # Utilitas umum dari ShadCN (seperti `cn` untuk classname)
+│   ├── lib/                                  # Logika & utilitas pendukung (server-side)
+│   │   ├── admin-settings-utils.ts         # Fungsi untuk enkripsi/dekripsi & manajemen kredensial admin
+│   │   ├── auth-utils.ts                     # Konstanta, tipe, dan utilitas terkait autentikasi
+│   │   ├── client-utils.ts                   # Utilitas yang aman untuk digunakan di sisi klien
+│   │   ├── db-price-settings-utils.ts        # Fungsi untuk mengelola harga custom di database
+│   │   ├── mongodb.ts                        # Abstraksi untuk koneksi dan query ke MongoDB
+│   │   ├── notification-utils.ts             # Logika untuk memformat & mengirim notifikasi Telegram
+│   │   ├── price-settings-utils.ts           # Utilitas harga custom untuk sisi klien (localStorage)
+│   │   ├── transaction-utils.ts              # Fungsi CRUD untuk data transaksi
+│   │   ├── user-utils.ts                     # Fungsi CRUD untuk data pengguna (termasuk hash password/PIN)
+│   │   └── utils.ts                          # Utilitas umum dari ShadCN (seperti `cn` untuk classname)
 ├── public/                                   # Aset statis (gambar, favicon, dll)
 ├── .env                                      # !! SANGAT RAHASIA: File untuk variabel lingkungan !!
 ├── next.config.ts                            # Konfigurasi Next.js
@@ -349,4 +349,3 @@ ePulsaku/
 ---
 
 Semoga berhasil dengan instalasi ePulsaku!
-# epulsaku-V2

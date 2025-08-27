@@ -4,6 +4,7 @@
 import { getAdminSettingsFromDB } from './admin-settings-utils';
 import { sendTelegramMessage } from '@/ai/flows/send-telegram-message-flow';
 import { getUserByUsername, type StoredUser } from './user-utils';
+import { formatDateInTimezone } from './timezone';
 
 export interface TelegramNotificationDetails {
   refId: string;
@@ -33,15 +34,18 @@ function escapeTelegramReservedChars(text: string | number | null | undefined): 
 
 // This function now handles both transaction and security alert notifications
 function formatTelegramNotificationMessage(details: TelegramNotificationDetails): string {
-  const time = escapeTelegramReservedChars(new Date(details.timestamp).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }));
+  const time = escapeTelegramReservedChars(formatDateInTimezone(details.timestamp));
   
   // --- Security Alert Format ---
-  if (details.provider === 'System' || details.productName === 'Account Security Alert') {
-     let alertMessage = `*🚨 Peringatan Keamanan Akun ePulsaku 🚨*\n\n`;
-     alertMessage += `👤 *Pengguna:* ${escapeTelegramReservedChars(details.transactedBy)}\n`;
+  if (details.provider === 'System' || details.productName === 'Account Security Alert' || details.productName === 'Low Balance Alert') {
+     let alertMessage = `*🚨 Peringatan Sistem ePulsaku 🚨*\n\n`;
+     alertMessage += `🔵 *Judul:* ${escapeTelegramReservedChars(details.productName)}\n`;
      alertMessage += `🔵 *Status:* *${escapeTelegramReservedChars(details.status)}*\n`;
+     if(details.transactedBy && details.transactedBy !== 'System Monitor') {
+       alertMessage += `👤 *Pengguna:* ${escapeTelegramReservedChars(details.transactedBy)}\n`;
+     }
      if(details.failureReason) {
-       alertMessage += `📝 *Alasan:* ${escapeTelegramReservedChars(details.failureReason)}\n`;
+       alertMessage += `📝 *Pesan:* ${escapeTelegramReservedChars(details.failureReason)}\n`;
      }
      alertMessage += `\n🕒 _${time}_`;
      return alertMessage;
@@ -119,13 +123,14 @@ function formatTelegramNotificationMessage(details: TelegramNotificationDetails)
 export async function trySendTelegramNotification(details: TelegramNotificationDetails) {
   try {
     const adminSettings = await getAdminSettingsFromDB();
-    const botToken = adminSettings.telegramBotToken;
-    const globalChatIdsString = adminSettings.telegramChatId;
-
-    if (!botToken) {
-      // console.warn('Telegram Bot Token not configured. Skipping all notifications for Ref ID:', details.refId);
+    
+    // Explicitly check if the token is available and valid
+    if (!adminSettings.telegramBotToken) {
+      console.warn('[Telegram Notif] Skipping notification: Telegram Bot Token is not configured. Ref ID:', details.refId);
       return;
     }
+    
+    const globalChatIdsString = adminSettings.telegramChatId;
 
     const messageContent = formatTelegramNotificationMessage(details);
     const chatIdsToSendTo = new Set<string>();
@@ -150,7 +155,12 @@ export async function trySendTelegramNotification(details: TelegramNotificationD
 
     // 3. Send notifications
     for (const chatId of chatIdsToSendTo) {
-      const result = await sendTelegramMessage({ botToken, chatId, message: messageContent });
+      // Pass the correct, unencrypted token to the flow
+      const result = await sendTelegramMessage({
+        botToken: adminSettings.telegramBotToken, 
+        chatId,
+        message: messageContent,
+      });
       if (result.success) {
         console.log(`Telegram notification sent to Chat ID ${chatId} for event regarding user: ${details.transactedBy || details.refId}`);
       } else {

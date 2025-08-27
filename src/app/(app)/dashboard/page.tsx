@@ -276,10 +276,12 @@ export default function DashboardPage() {
                                     <stat.icon className={`h-4 w-4 ${stat.highlight ? 'text-green-600' : 'text-primary'}`} />
                                     {stat.label}
                                 </div>
-                                <p className={`mt-1 text-2xl font-bold ${stat.highlight ? 'text-green-600' : 'text-foreground'}`}>{stat.data.count.toLocaleString()} Tx</p>
-                                <p className={`text-sm font-medium ${stat.highlight ? 'text-red-500' : 'text-red-600'}`}>
-                                    Rp {stat.data.cost.toLocaleString()}
-                                </p>
+                                <div className="flex flex-col items-center justify-center mt-1 text-center">
+                                  <p className={`text-2xl font-bold ${stat.highlight ? 'text-green-600' : 'text-foreground'}`}>{stat.data.count.toLocaleString()} Tx</p>
+                                  <p className={`text-xs font-medium ${stat.highlight ? 'text-red-500' : 'text-red-600'}`}>
+                                      Rp {stat.data.cost.toLocaleString()}
+                                  </p>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -368,7 +370,7 @@ export default function DashboardPage() {
                             <ChartContainer config={{}} className="h-[350px] w-full">
                                 <AreaChart
                                     data={transactionChartData}
-                                    margin={{ top: 5, right: 20, left: -25, bottom: 0 }}
+                                    margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
                                 >
                                     <defs>
                                         <linearGradient id="colorCountChart" x1="0" y1="0" x2="0" y2="1">
@@ -379,12 +381,12 @@ export default function DashboardPage() {
                                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
                                     <XAxis 
                                         dataKey="date" 
-                                        tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} 
+                                        tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} 
                                         axisLine={{ stroke: 'hsl(var(--border))' }}
                                         tickLine={{ stroke: 'hsl(var(--border))' }}
                                     />
                                     <YAxis 
-                                        tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                                        tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
                                         axisLine={{ stroke: 'hsl(var(--border))' }}
                                         tickLine={{ stroke: 'hsl(var(--border))' }}
                                         allowDecimals={false}
@@ -408,6 +410,7 @@ export default function DashboardPage() {
                                       height={30} 
                                       stroke="hsl(var(--primary))" 
                                       fill="hsl(var(--background))"
+                                      tickFormatter={(value) => value.toString().substring(0, 3)}
                                       travellerWidth={10}
                                     />
                                 </AreaChart>

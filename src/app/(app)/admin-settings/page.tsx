@@ -71,14 +71,14 @@ export default function AdminSettingsPage() {
         if (storedSettings) {
           form.reset({
             digiflazzUsername: storedSettings.digiflazzUsername || "",
-            digiflazzApiKey: storedSettings.digiflazzApiKey || "",
-            digiflazzWebhookSecret: storedSettings.digiflazzWebhookSecret || "",
+            digiflazzApiKey: "", // Always empty for security
+            digiflazzWebhookSecret: "", // Always empty
             allowedDigiflazzIPs: storedSettings.allowedDigiflazzIPs || "",
             allowedTokoVoucherIPs: storedSettings.allowedTokoVoucherIPs || "",
             tokovoucherMemberCode: storedSettings.tokovoucherMemberCode || "",
-            tokovoucherSignature: storedSettings.tokovoucherSignature || "",
-            tokovoucherKey: storedSettings.tokovoucherKey || "",
-            telegramBotToken: storedSettings.telegramBotToken || "",
+            tokovoucherSignature: "", // Always empty
+            tokovoucherKey: "", // Always empty
+            telegramBotToken: storedSettings.telegramBotToken || "", // Show stored value
             telegramChatId: storedSettings.telegramChatId || "",
             adminPasswordConfirmation: "", 
           });
@@ -104,18 +104,27 @@ export default function AdminSettingsPage() {
     }
     setIsLoading(true);
     try {
-      const settingsToSave: Omit<AdminSettings, '_id'> = {
-        digiflazzUsername: values.digiflazzUsername,
-        digiflazzApiKey: values.digiflazzApiKey,
-        digiflazzWebhookSecret: values.digiflazzWebhookSecret,
-        allowedDigiflazzIPs: values.allowedDigiflazzIPs,
-        allowedTokoVoucherIPs: values.allowedTokoVoucherIPs,
-        tokovoucherMemberCode: values.tokovoucherMemberCode,
-        tokovoucherSignature: values.tokovoucherSignature,
-        tokovoucherKey: values.tokovoucherKey,
-        telegramBotToken: values.telegramBotToken,
-        telegramChatId: values.telegramChatId,
-      };
+      // Create a payload that only includes fields that the user has entered a value for.
+      // This prevents overwriting existing encrypted values with empty strings.
+      const settingsToSave: Partial<AdminSettings> = {};
+      if (values.digiflazzUsername) settingsToSave.digiflazzUsername = values.digiflazzUsername;
+      if (values.digiflazzApiKey) settingsToSave.digiflazzApiKey = values.digiflazzApiKey;
+      if (values.digiflazzWebhookSecret) settingsToSave.digiflazzWebhookSecret = values.digiflazzWebhookSecret;
+      if (values.allowedDigiflazzIPs) settingsToSave.allowedDigiflazzIPs = values.allowedDigiflazzIPs;
+      if (values.allowedTokoVoucherIPs) settingsToSave.allowedTokoVoucherIPs = values.allowedTokoVoucherIPs;
+      if (values.tokovoucherMemberCode) settingsToSave.tokovoucherMemberCode = values.tokovoucherMemberCode;
+      if (values.tokovoucherSignature) settingsToSave.tokovoucherSignature = values.tokovoucherSignature;
+      if (values.tokovoucherKey) settingsToSave.tokovoucherKey = values.tokovoucherKey;
+      
+      // Handle telegram fields, allowing them to be cleared with an empty string
+      if (typeof values.telegramBotToken === 'string') {
+        settingsToSave.telegramBotToken = values.telegramBotToken;
+      }
+      if (typeof values.telegramChatId === 'string') {
+        settingsToSave.telegramChatId = values.telegramChatId;
+      }
+
+
       const result = await saveAdminSettingsToDB({
         settings: settingsToSave,
         adminPasswordConfirmation: values.adminPasswordConfirmation,
@@ -125,12 +134,17 @@ export default function AdminSettingsPage() {
       if (result.success) {
         toast({
           title: "Settings Saved",
-          description: "Admin settings have been successfully updated and encrypted.",
+          description: "Admin settings have been successfully updated.",
         });
-        form.setValue("adminPasswordConfirmation", ""); 
-        const storedSettings = await getAdminSettingsFromDB(); 
-        form.reset({ ...storedSettings, adminPasswordConfirmation: "" });
-
+        // Reset password fields but keep other values
+        form.reset({
+          ...values,
+          digiflazzApiKey: "",
+          digiflazzWebhookSecret: "",
+          tokovoucherSignature: "",
+          tokovoucherKey: "",
+          adminPasswordConfirmation: "",
+        });
       } else {
         toast({
           title: "Error Saving Settings",
@@ -161,7 +175,7 @@ export default function AdminSettingsPage() {
             Admin Settings
           </CardTitle>
           <PageCardDescription>
-            Manage application credentials and webhook configurations. Sensitive data (API keys, secrets, tokens) will be encrypted at rest. Password confirmation is required to save any changes.
+            Manage application credentials and webhook configurations. Sensitive data (API keys, secrets) will be encrypted at rest. Password confirmation is required to save any changes.
           </PageCardDescription>
         </CardHeader>
         <CardContent>
@@ -169,7 +183,7 @@ export default function AdminSettingsPage() {
             <CardContent className="p-4 text-blue-700 text-sm flex items-start gap-2">
               <Info className="h-5 w-5 mt-0.5 flex-shrink-0" />
               <div>
-                <strong className="font-semibold">Note on Encryption:</strong> Fields marked with a lock icon are encrypted. If a field has a value, it will appear empty for security. To update it, simply type the new value. To clear it, submit an empty value for that field.
+                <strong className="font-semibold">Note on Encryption:</strong> Fields marked with a lock icon are encrypted. They will always appear empty for security. To update a value, simply type the new value. To leave it unchanged, leave the field blank.
               </div>
             </CardContent>
           </Card>
@@ -202,9 +216,9 @@ export default function AdminSettingsPage() {
                     name="digiflazzApiKey"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="flex items-center"><KeyRound className="mr-2 h-4 w-4 text-muted-foreground" />Digiflazz API Key (Production)</FormLabel>
+                        <FormLabel className="flex items-center"><Lock className="mr-2 h-4 w-4 text-muted-foreground" />Digiflazz API Key (Production)</FormLabel>
                         <FormControl>
-                          <Input type="password" placeholder={field.value ? "•••••••• (Encrypted)" : "Your Digiflazz API Key"} {...field} value="" onChange={field.onChange} />
+                          <Input type="password" placeholder="Leave blank to keep existing key" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -215,9 +229,9 @@ export default function AdminSettingsPage() {
                     name="digiflazzWebhookSecret"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="flex items-center"><KeyRound className="mr-2 h-4 w-4 text-muted-foreground" />Digiflazz Webhook Secret</FormLabel>
+                        <FormLabel className="flex items-center"><Lock className="mr-2 h-4 w-4 text-muted-foreground" />Digiflazz Webhook Secret</FormLabel>
                         <FormControl>
-                          <Input type="password" placeholder={field.value ? "•••••••• (Encrypted)" : "Your Digiflazz Webhook Secret Key"} {...field} value="" onChange={field.onChange} />
+                          <Input type="password" placeholder="Leave blank to keep existing secret" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -259,9 +273,9 @@ export default function AdminSettingsPage() {
                     name="tokovoucherSignature"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="flex items-center"><KeyRound className="mr-2 h-4 w-4 text-muted-foreground" />TokoVoucher Signature (for API Info)</FormLabel>
+                        <FormLabel className="flex items-center"><Lock className="mr-2 h-4 w-4 text-muted-foreground" />TokoVoucher Signature (for API Info)</FormLabel>
                         <FormControl>
-                          <Input type="password" placeholder={field.value ? "•••••••• (Encrypted)" : "Your TokoVoucher Signature"} {...field} value="" onChange={field.onChange}/>
+                          <Input type="password" placeholder="Leave blank to keep existing signature" {...field} />
                         </FormControl>
                         <FormDescription className="text-xs">Usually for API calls like get balance, get products.</FormDescription>
                         <FormMessage />
@@ -273,9 +287,9 @@ export default function AdminSettingsPage() {
                     name="tokovoucherKey"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="flex items-center"><KeyRound className="mr-2 h-4 w-4 text-muted-foreground" />TokoVoucher Key/Secret (for Transactions & Webhook)</FormLabel>
+                        <FormLabel className="flex items-center"><Lock className="mr-2 h-4 w-4 text-muted-foreground" />TokoVoucher Key/Secret (for Transactions & Webhook)</FormLabel>
                         <FormControl>
-                           <Input type="password" placeholder={field.value ? "•••••••• (Encrypted)" : "Your TokoVoucher API Key/Secret"} {...field} value="" onChange={field.onChange}/>
+                           <Input type="password" placeholder="Leave blank to keep existing key" {...field} />
                         </FormControl>
                          <FormDescription className="text-xs">Used for placing orders and verifying webhooks.</FormDescription>
                         <FormMessage />
@@ -307,9 +321,9 @@ export default function AdminSettingsPage() {
                       <FormItem>
                         <FormLabel className="flex items-center"><SendIcon className="mr-2 h-4 w-4 text-muted-foreground" />Telegram Bot Token</FormLabel>
                         <FormControl>
-                           <Input type="password" placeholder={field.value ? "•••••••• (Encrypted)" : "Your Telegram Bot Token"} {...field} value="" onChange={field.onChange} />
+                           <Input type="text" placeholder="Enter your Telegram Bot Token" {...field} />
                         </FormControl>
-                        <FormDescription className="text-xs">Get this from BotFather on Telegram.</FormDescription>
+                        <FormDescription className="text-xs">Get this from BotFather on Telegram. Stored as plain text.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

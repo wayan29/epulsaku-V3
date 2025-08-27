@@ -1,4 +1,3 @@
-
 // src/app/(app)/receipt/[transactionId]/page.tsx
 "use client";
 
@@ -17,6 +16,7 @@ import { productIconsMapping } from '@/components/transactions/TransactionItem';
 import html2canvas from 'html2canvas';
 import { useToast } from '@/hooks/use-toast';
 import { getEffectiveSellingPrice } from '@/lib/price-settings-utils'; // Import the new utility
+import { formatDateInTimezone } from '@/lib/timezone';
 
 type PaperSize = "a4" | "thermal" | "dot-matrix" | "small";
 
@@ -73,12 +73,12 @@ export default function ReceiptPage() {
 
   useEffect(() => {
     if (transaction) {
-      setFormattedDate(new Date(transaction.timestamp).toLocaleString());
+      setFormattedDate(formatDateInTimezone(transaction.timestamp));
       const price = getEffectiveSellingPrice(transaction.buyerSkuCode, transaction.provider, transaction.costPrice);
       setCustomSellingPrice(price);
     }
     if (transaction && (transaction as any).expired_at) {
-      setFormattedExpiryDate(new Date((transaction as any).expired_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }));
+      setFormattedExpiryDate(formatDateInTimezone((transaction as any).expired_at, "medium"));
     }
   }, [transaction]);
 

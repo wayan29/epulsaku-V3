@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
+import { formatDateInTimezone } from '@/lib/timezone';
 
 export default function LoginActivityPage() {
   const { user } = useAuth();
@@ -104,7 +105,7 @@ export default function LoginActivityPage() {
                 <TableBody>
                   {loginActivities.map((activity) => (
                     <TableRow key={activity._id?.toString() || activity.loginTimestamp.toString() + activity.ipAddress}>
-                      <TableCell>{new Date(activity.loginTimestamp).toLocaleString()}</TableCell>
+                      <TableCell>{formatDateInTimezone(activity.loginTimestamp)}</TableCell>
                       <TableCell className="text-xs max-w-xs truncate" title={activity.userAgent || 'N/A'}>
                         {activity.userAgent || 'N/A'}
                       </TableCell>
